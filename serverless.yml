@@ -1,0 +1,87 @@
+org: flyingbirdasuka
+app: python-http
+service: aws-python-http-api-project
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: eu-central-1
+  stage: dev
+  timeout: 10
+  memorySize: 128
+  environment:
+    THUMBNAIL_SIZE: 128
+    REGION_NAME: ${self:provider.region}
+    DYNAMODB_TABLE: ${self:custom.dynamoTable}
+  
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Resource: '*'
+          Action: 's3:*'
+        - Effect: 'Allow'
+          Action: 
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem  
+          Resource: 'arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE}'  
+custom:
+  bucket: image-bucket-asuka
+  dynamoTable: s3-thumbnail-table
+  pythonRequirements:
+    dockerizePip: true
+
+functions:
+  s3_thumbnail_generator:
+    handler: handler.s3_thumbnail_generator
+    events:
+      - s3:
+          bucket: ${self:custom.bucket}
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .png
+  get_all_data:
+    handler: handler.get_all_data    
+    events:
+      - http:
+          path: thumbnail/all
+          method: get
+          cors: true
+  get_item:
+    handler: handler.get_item    
+    events:
+      - http:
+          path: thumbnail/get/{id}
+          method: get
+          cors: true   
+  delete_item:
+    handler: handler.delete_item    
+    events:
+      - http:
+          path: thumbnail/delete/{id}
+          method: delete
+          cors: true              
+
+  
+resources: # CloudFormation template syntax from here on.
+      Resources:
+        usersTable:
+          Type: AWS::DynamoDB::Table
+          Properties:
+            TableName: ${self:provider.environment.DYNAMODB_TABLE}  
+            AttributeDefinitions:
+              - AttributeName: id
+                AttributeType: S
+            KeySchema:
+              - AttributeName: id
+                KeyType: HASH
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+plugins:
+  - serverless-python-requirements
