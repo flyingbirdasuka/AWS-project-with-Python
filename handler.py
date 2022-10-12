@@ -24,7 +24,7 @@ def s3_thumbnail_generator(event, context):
         resized_image_name = new_filename(key) # create a new file name for resized bucket
         s3_client.upload_file(upload_path, '{}-resized'.format(bucket), resized_image_name) # upload a resized image to the resized bucket
         
-        saveToDynamoDB(upload_path, bucket) # save data to dynamo db
+        saveToDynamoDB(key, bucket) # save data to dynamo db
         sendEmail(bucket, 'info@asukamethod.com', 'info@asukamethod.com') # send a notification email
         sendSMS(bucket) # send a notification sms
 
@@ -35,7 +35,7 @@ def make_thumbnail(image_path, resized_path):
 
 def new_filename(key):
     key_split = key.rsplit('.', 1)
-    return key_split[0] + "_thumbnail.png"
+    return str(uuid.uuid4()) + '_' + key_split[0] + "_thumbnail.png"
 
 def sendEmail(bucket, sender_email, receiver_email):
     import smtplib, ssl
@@ -70,12 +70,12 @@ def sendSMS(bucket):
                 to='...phone number...' 
             ) 
     
-def saveToDynamoDB(path, bucket):
+def saveToDynamoDB(key, bucket):
     data = dynamoTable.put_item(
         Item={
             'id': str(uuid.uuid4()),
             'bucket-name': str(bucket),
-            'path': str(path),
+            'key': str(key),
             'createdAt': str(datetime.now()),
             'updatedAt': str(datetime.now())
         } 
@@ -96,6 +96,10 @@ def get_all_data(event, context):
 
     return {
         'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': True,
+        },
         'body': json.dumps(data)
     }
 
@@ -108,6 +112,10 @@ def get_item(event, context):
 
     return {
         'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': True,
+        },
         'body': json.dumps(item)
     }
 
@@ -118,5 +126,9 @@ def delete_item(event, context):
     message = 'deleted succesfully!'
     return {
         'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': True,
+        },
         'body': message
     }
